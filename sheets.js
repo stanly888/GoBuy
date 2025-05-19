@@ -23,17 +23,19 @@ async function writeToSheet(nickname, lineId) {
         });
 
         const values = [[timestamp, nickname, lineId]];
+        console.log('➡️ 準備寫入資料：', values);
+        console.log('➡️ 使用工作表 ID：', config.sheetId);
 
         await sheets.spreadsheets.values.append({
             spreadsheetId: config.sheetId,
-            range: '工作表1!A:C', // 可調整表單名稱
+            range: '工作表1!A:C',
             valueInputOption: 'USER_ENTERED',
             resource: { values }
         });
 
         console.log(`✅ 已寫入 Google Sheet：${nickname} (${lineId})`);
     } catch (error) {
-        console.error('❌ 寫入 Google Sheet 錯誤：', error);
+        console.error('❌ 寫入 Google Sheet 錯誤：', error.response?.data || error.message || error);
         throw new Error('寫入表單失敗');
     }
 }
