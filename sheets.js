@@ -8,16 +8,34 @@ const auth = new google.auth.GoogleAuth({
 });
 
 async function writeToSheet(nickname, lineId) {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    try {
+        const client = await auth.getClient();
+        const sheets = google.sheets({ version: 'v4', auth: client });
 
-    const values = [[new Date().toLocaleString(), nickname, lineId]];
-    await sheets.spreadsheets.values.append({
-        spreadsheetId: config.sheetId,
-        range: '工作表1!A:C',
-        valueInputOption: 'USER_ENTERED',
-        resource: { values }
-    });
+        const timestamp = new Date().toLocaleString('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        const values = [[timestamp, nickname, lineId]];
+
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: config.sheetId,
+            range: '工作表1!A:C', // 可調整表單名稱
+            valueInputOption: 'USER_ENTERED',
+            resource: { values }
+        });
+
+        console.log(`✅ 已寫入 Google Sheet：${nickname} (${lineId})`);
+    } catch (error) {
+        console.error('❌ 寫入 Google Sheet 錯誤：', error);
+        throw new Error('寫入表單失敗');
+    }
 }
 
 module.exports = { writeToSheet };
