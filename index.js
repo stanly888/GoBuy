@@ -5,12 +5,13 @@ const config = require('./config');
 
 const app = express();
 
-// ❗不要 app.use(express.json()) ← 千萬不要加！會破壞 LINE 的 raw body！
+// ⚠️ 不要加入任何會解析 JSON 的 middleware！
+// 特別是：app.use(express.json()) 絕對不能加在全域！
 
 const client = new line.Client(config.lineConfig);
 const sessions = new Map();
 
-// ✅ 正確處理 LINE Webhook（原始 body 供驗簽）
+// ✅ 正確處理 LINE webhook 請求（保留原始 request body）
 app.post('/webhook', line.middleware(config.lineConfig), async (req, res) => {
   try {
     const events = req.body.events;
@@ -26,8 +27,8 @@ app.post('/webhook', line.middleware(config.lineConfig), async (req, res) => {
   }
 });
 
-// ✅ 其他非 webhook 的 API 如果需要 json 可以另開：
-app.use('/api', express.json());
+// ✅ 如果你有其他 API，再另外開這裡才用 express.json()
+app.use('/api', express.json()); // 可選：你沒用就先不寫
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
