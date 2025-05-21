@@ -1,69 +1,65 @@
 const { writeToSheet } = require('./sheets');
 
-async function handleMessage(event, client, sessions) {
-    const userId = event.source.userId;
-    const text = event.message.text.trim();
-    
-    // 初始化會話
-    if (!sessions.has(userId)) {
-        // 只有當使用者輸入註冊關鍵字才啟動流程
-        if (text.toLowerCase() === '我要註冊') {
-            sessions.set(userId, { step: 1, data: {} });
-            await client.replyMessage(event.replyToken, {
-                type: 'text',
-                text: '請輸入您的暱稱：'
-            });
-        } else {
-            // 非註冊指令時靜默不回或提示
-            await client.replyMessage(event.replyToken, {
-                type: 'text',
-                text: '請輸入：「我要註冊」以開始 Gobuy 註冊流程'
-            });
-        }
-        return;
-    }
+const sessions = new Map();
 
-    // 使用者正在註冊中
-    const session = sessions.get(userId);
+async function handleMessage(event, client) {
+    const userId = event.source.userId;
+    const message = event.message;
+    const session = sessions.get(userId) || { step: 0, data: {} };
 
     try {
-        switch (session.step) {
-            case 1:
-                session.data.nickname = text;
-                session.step = 2;
+        if (session.step === 0) {
+            if (message.text === '我要提案') {
+                session.step = 1;
+                sessions.set(userId, session);
                 await client.replyMessage(event.replyToken, {
                     type: 'text',
-                    text: '請輸入您的 LINE ID（此將作為推薦碼）：'
+                    text: '請提供商品名稱：'
                 });
-                break;
-
-            case 2:
-                session.data.lineId = text;
+                return;
+            }
+        } else if (session.step === 1) {
+            session.data.productName = message.text;
+            session.step = 2;
+            sessions.set(userId, session);
+            await client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: '請提供商品圖片：'
+            });
+            return;
+        } else if (session.step === 2) {
+            if (message.type === 'image') {
+                const imageId = message.id;
+                const productName = session.data.productName;
 
                 // 寫入 Google Sheet
-                await writeToSheet(session.data.nickname, session.data.lineId);
+                await writeToSheet(productName, imageId);
 
                 await client.replyMessage(event.replyToken, {
                     type: 'text',
-                    text: `✅ 註冊完成！\n你的推薦碼是：${session.data.lineId}\n快分享給朋友加入 Gobuy 吧！`
+                    text: '✅ 提案成功！我們會盡快審核，謝謝你的分享。'
                 });
-
-                // 清除 session
                 sessions.delete(userId);
-                break;
-
-            default:
+                return;
+            } else {
                 await client.replyMessage(event.replyToken, {
                     type: 'text',
-                    text: '流程錯誤，請重新輸入「我要註冊」'
+                    text: '請上傳一張圖片喔（不是文字）'
                 });
-                sessions.delete(userId);
+                return;
+            }
         }
-    } catch (err) {
-        console.error('❌ 註冊流程錯誤:', err);
+
+        // 預設處理非流程指令
         await client.replyMessage(event.replyToken, {
             type: 'text',
-            text: '系統錯誤，請稍後再試或輸入「我要註冊」重新開始。'
+            text: '請從主選單選擇功能進行操作。'
+        });
+    } catch (err) {
+        console.error('❌ 提案流程錯誤:', err);
+        await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '發生錯誤，請稍後再試一次。'
         });
         sessions.delete(userId);
     }
